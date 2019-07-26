@@ -82,6 +82,44 @@ database.query('SELECT officialcertified FROM scoop.users WHERE userid = :id',
  
 });
 
+/**
+ * Edit post text
+ */
+router.post("/edit-post/text/", authorization, (req, res) => {
+  const { activityid, activitytype, posttitle, posttext } = req.body;
+
+  var modifieddate = new Date()
+  // update the post/comment values
+  //image path will be left blank ("") if no image was added to the post.
+  database.query('\
+  UPDATE scoop.postcomment \
+  SET posttitle = :posttitle, posttext = :posttext, modifieddate = :modifieddate \
+  WHERE activityid = :activityid \
+  ',
+  {replacements:{activityid: activityid, posttitle: posttitle, posttext: posttext, modifieddate: modifieddate}})
+  .then((results) => {
+    if (activitytype == 1) {
+      database.query(' \
+      UPDATE scoop.postcomment \
+      SET searchtokens = to_tsvector \
+      (\'english\', \
+        COALESCE( \
+          ( \
+          SELECT concat(scoop.postcomment.posttitle, \' \', scoop.postcomment.posttext) \
+          FROM scoop.postcomment \
+          WHERE scoop.postcomment.activityid = :activityid \
+          ) \
+        ) \
+      ) \
+      WHERE scoop.postcomment.activityid = :activityid',
+      {replacements:{activityid: activityid}, type: database.QueryTypes.SELECT})
+    }
+
+    res.send("Success");
+  })
+
+});
+
 
 /*===============================Merged from display-post.js================================*/
 
@@ -101,7 +139,7 @@ router.get('/feed-text/:feed/:userid',authorization,(request, response)=>{
   LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, CASE\
     WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t5 ON scoop.postcomment.activityid = t5.savedactivityid\
   WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND feed = :feed \
-  ORDER BY scoop.postcomment.createddate DESC', 
+  ORDER BY scoop.postcomment.modifieddate DESC', 
   {replacements: {id:userid, feed: feed}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -120,7 +158,7 @@ router.get('/feed-images/:feed/:userid', authorization, (request, response)=>{
   database.query('SELECT scoop.postcomment.postimagepath AS postimagepath, scoop.users.profileimage AS profileimage FROM scoop.postcomment \
   INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid \
   WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND feed = :feed \
-  ORDER BY scoop.postcomment.createddate DESC',
+  ORDER BY scoop.postcomment.modifieddate DESC',
   {replacements: {id: userid, feed: feed}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -244,7 +282,7 @@ router.get('/display-comments/text/:activityid/:userid', authorization, (request
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :userid) t2 ON A.activityid = t2.likesactivityid \
   INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS currentuserid FROM scoop.users) t4 ON A.userid = t4.currentuserid \
   WHERE A.activitytype = 2 AND A.activestatus = 1 AND A.activityreference = :activityReference \
-  ORDER BY A.createddate DESC;', 
+  ORDER BY A.modifieddate DESC;', 
   {replacements: {activityReference: activityReference, userid: userid}, type: database.QueryTypes.SELECT})
   .then(results => {
       console.log(results)
@@ -261,7 +299,7 @@ router.get('/display-comments/images/:activityid', authorization, (request, resp
   database.query('SELECT users.profileimage AS profileimage FROM scoop.postcomment AS postcomment \
 INNER JOIN scoop.users AS users ON users.userid = postcomment.userid \
   WHERE postcomment.activitytype = 2 AND postcomment.activestatus = 1 AND postcomment.activityreference = :activityReference\
-  ORDER BY postcomment.createddate DESC',
+  ORDER BY postcomment.modifieddate DESC',
   {replacements: {activityReference: activityReference}, type: database.QueryTypes.SELECT})
   .then(results=>{
       for(i=0; i<results.length; i++){                        
@@ -291,7 +329,7 @@ router.get('/search/text/:userid/:query',authorization,(request, response)=>{
 	LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
 	INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t4 ON scoop.postcomment.userid = t4.userid \
 	WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.postcomment.searchtokens @@ to_tsquery(:query) \
-	ORDER BY scoop.postcomment.createddate DESC', 
+	ORDER BY scoop.postcomment.modifieddate DESC', 
   {replacements: {id:userid, query: query}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -307,7 +345,7 @@ router.get('/search/images/:query', authorization, (request, response)=>{
   database.query('SELECT users.profileimage AS profileimage FROM scoop.postcomment AS postcomment \
   INNER JOIN scoop.users AS users ON users.userid = postcomment.userid \
   WHERE postcomment.activitytype = 1 AND postcomment.activestatus = 1 AND postcomment.searchtokens @@ to_tsquery(:query) \
-  ORDER BY postcomment.createddate DESC',
+  ORDER BY postcomment.modifieddate DESC',
   {replacements: {query: query}, type: database.QueryTypes.SELECT})
   .then(results=>{
       for(i=0; i<results.length; i++){                        
@@ -420,12 +458,12 @@ router.get('/display-saved-post/:userid',authorization,(request, response)=>{
     savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
-  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.createddate AS savedcreateddate, CASE\
+  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.modifieddate AS savedmodifieddate, CASE\
     WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t3 ON scoop.postcomment.activityid = t3.savedactivityid\
   LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment GROUP BY scoop.postcomment.activityreference) t4 ON scoop.postcomment.activityid = t4.activityreference \
   INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t5 ON scoop.postcomment.userid = t5.userid \
   WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND t3.saveduserid = :id\
-  ORDER BY t3.savedcreateddate DESC', 
+  ORDER BY t3.savedmodifieddate DESC', 
   {replacements: {id:userid}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -445,7 +483,7 @@ router.get('/display-saved-post/:userid',authorization,(request, response)=>{
     INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid\
     INNER JOIN scoop.savedposts ON scoop.savedposts.activityid = scoop.postcomment.activityid\
     WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.savedposts.userid = :id\
-    ORDER BY scoop.savedposts.createddate DESC',
+    ORDER BY scoop.savedposts.modifieddate DESC',
     {replacements: {id: userid}, type: database.QueryTypes.SELECT})
     .then(results=>{
         console.log(results)

@@ -78,7 +78,7 @@ router.get("/posttextfill/:userclicked/:currentuser", authorization, (request, r
     LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, CASE\
         WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :currentuser) t4 ON scoop.postcomment.activityid = t4.savedactivityid\
     WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.postcomment.userid = :id\
-    ORDER BY scoop.postcomment.createddate DESC', 
+    ORDER BY scoop.postcomment.modifieddate DESC', 
     {replacements: {id: userClicked, currentuser: currentuser}, type: database.QueryTypes.SELECT})
     .then(results => {
         console.log(results)
@@ -92,7 +92,7 @@ router.get('/postimagefill/:userid', authorization, (request, response)=>{
     database.query('SELECT scoop.users.profileimage AS profileimage FROM scoop.postcomment \
     INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid \
     WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.postcomment.userid = :id \
-    ORDER BY scoop.postcomment.createddate DESC',
+    ORDER BY scoop.postcomment.modifieddate DESC',
     {replacements: {id: userid}, type: database.QueryTypes.SELECT})
     .then(results=>{
         for(i=0; i<results.length; i++){                        
@@ -120,7 +120,7 @@ router.get('/comment-message/:userclicked/:currentuser', authorization, (request
     LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :currentuser) t2 ON A.activityid = t2.likesactivityid \
     INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS currentuserid FROM scoop.users) t4 ON A.userid = t4.currentuserid \
     WHERE A.activitytype = 2 AND A.activestatus = 1 AND A.userid = :id \
-    ORDER BY A.createddate DESC', 
+    ORDER BY A.modifieddate DESC', 
     {replacements: {id: userClicked, currentuser: currentUser}, type: database.QueryTypes.SELECT})
     .then(results => {
         console.log(results)
@@ -137,7 +137,7 @@ router.get('/comment-profile-image/:userid', authorization, (request, response)=
     database.query('SELECT scoop.users.profileimage AS profileimage FROM scoop.postcomment \
     INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid \
     WHERE scoop.postcomment.activitytype = 2 AND scoop.postcomment.activestatus = 1 AND scoop.postcomment.userid = :id \
-    ORDER BY scoop.postcomment.createddate DESC',
+    ORDER BY scoop.postcomment.modifieddate DESC',
     {replacements: {id: userid}, type: database.QueryTypes.SELECT})
     .then(results=>{
         for(i=0; i<results.length; i++){                        
@@ -270,7 +270,7 @@ router.get("/getlikes/text/:userclicked/:currentuser", authorization, (request, 
     LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, CASE\
         WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :currentuser) t4 ON B.activityid = t4.savedactivityid\
     WHERE  A.activestatus = 1 AND B.activitytype = 1 AND B.activestatus = 1 AND B.activityid = A.activityid AND A.userid = :id AND A.liketype = 1\
-    ORDER BY B.createddate DESC', 
+    ORDER BY B.modifieddate DESC', 
     {replacements: {id: userClicked, currentuser: currentuser}, type: database.QueryTypes.SELECT})
     .then(results => {
         console.log(results)
@@ -287,7 +287,7 @@ router.get('/getlikes/images/:userid', authorization, (request, response)=>{
     INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid \
     INNER JOIN scoop.likes ON scoop.postcomment.activityid = scoop.likes.activityid \
     WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.likes.userid = :id AND scoop.likes.liketype = 1\
-    ORDER BY scoop.postcomment.createddate DESC',
+    ORDER BY scoop.postcomment.modifieddate DESC',
     {replacements: {id: userid}, type: database.QueryTypes.SELECT})
     .then(results=>{
         for(i=0; i<results.length; i++){                        
