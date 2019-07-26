@@ -163,6 +163,38 @@ router.post("/edit-post/image/", authorization, (req, res) => {
 });
 
 
+/**
+ * Get post image for starting edit post activity
+ */
+router.post("/get-image/", authorization, (req, res) => {
+  const { activityid } = req.body;
+
+  database.query('\
+    SELECT scoop.postcomment.postimagepath AS postimagepath \
+    FROM scoop.postcomment \
+    WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 \
+    AND activityid = :activityid \
+    LIMIT 1;',
+  {replacements: {activityid: activityid}, type: database.QueryTypes.SELECT})
+  .then(results=>{
+    console.log(results)
+    for(i=0; i<results.length; i++){
+      console.log(results[i].profileimagepath);
+      if(results[i].postimagepath != null && results[i].postimagepath != ""){ //if there is a post image
+          var postImagePath = results[i].postimagepath; //gets the image path of the postimagepath
+          var postImageFile = fs.readFileSync(postImagePath); //reads the image path and stores the file into a variable
+          var postbase64data = postImageFile.toString('base64'); //converts the image file to a string
+          results[i].postimagepath = postbase64data; //saves it into the results postimagepath
+      }
+    }
+    console.log(results.length)
+    res.send(results[0].postimagepath);
+  }).catch(err=>{
+    console.log(err);
+  })
+});
+
+
 /*===============================Merged from display-post.js================================*/
 
 /**f
