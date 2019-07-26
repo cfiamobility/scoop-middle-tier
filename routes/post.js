@@ -90,7 +90,6 @@ router.post("/edit-post/text/", authorization, (req, res) => {
 
   var modifieddate = new Date()
   // update the post/comment values
-  //image path will be left blank ("") if no image was added to the post.
   database.query('\
   UPDATE scoop.postcomment \
   SET posttitle = :posttitle, posttext = :posttext, modifieddate = :modifieddate \
@@ -115,6 +114,49 @@ router.post("/edit-post/text/", authorization, (req, res) => {
       {replacements:{activityid: activityid}, type: database.QueryTypes.SELECT})
     }
 
+    res.send("Success");
+  })
+
+});
+
+
+/**
+ * Edit post image
+ */
+router.post("/edit-post/image/", authorization, (req, res) => {
+  const { activityid, userid, postimage } = req.body;
+
+  var imagepath = "";
+  if (postimage != "") {
+    //check if directory exists already
+    mkdirp("./pictures/postpicture/" + userid, function(err) {
+      //if error, this means directory already exists, ignore
+      console.log("post image directory already exists");
+    });
+
+    //use current time for unique name
+    var date = new Date();
+    var currTime = date.getTime();
+    console.log(currTime);
+    imagepath = "./pictures/postpicture/" + userid + "/" + currTime + ".jpg";
+
+    // write the image into the filepath
+    let buff = new Buffer(postimage, "base64");
+    fs.writeFileSync(imagepath, buff, function(err) {
+      if (err) {
+      }
+    });
+  }
+
+  // update the post/comment image path
+  // image path will be left blank ("") if no image was added to the post.
+  database.query('\
+  UPDATE scoop.postcomment \
+  SET postimagepath = :imagepath \
+  WHERE activityid = :activityid \
+  ',
+  {replacements:{activityid: activityid, imagepath: imagepath}})
+  .then((results) => {
     res.send("Success");
   })
 
