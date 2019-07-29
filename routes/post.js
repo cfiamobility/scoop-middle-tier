@@ -87,12 +87,16 @@ database.query('SELECT officialcertified FROM scoop.users WHERE userid = :id',
  */
 router.post("/edit-post/text/", authorization, (req, res) => {
   const { activityid, activitytype, posttitle, posttext } = req.body;
+  var updatePostTitleQuery = "";
+  if (posttitle != null) {
+    updatePostTitleQuery = "posttitle = :posttitle, ";
+  }
 
   var modifieddate = new Date()
   // update the post/comment values
   database.query('\
   UPDATE scoop.postcomment \
-  SET posttitle = :posttitle, posttext = :posttext, modifieddate = :modifieddate \
+  SET '+updatePostTitleQuery+' posttext = :posttext, modifieddate = :modifieddate \
   WHERE activityid = :activityid \
   ',
   {replacements:{activityid: activityid, posttitle: posttitle, posttext: posttext, modifieddate: modifieddate}})
@@ -532,12 +536,12 @@ router.get('/display-saved-post/:userid',authorization,(request, response)=>{
     savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
-  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.modifieddate AS savedmodifieddate, CASE\
+  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.createddate AS savedcreateddate, CASE\
     WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t3 ON scoop.postcomment.activityid = t3.savedactivityid\
   LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment GROUP BY scoop.postcomment.activityreference) t4 ON scoop.postcomment.activityid = t4.activityreference \
   INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t5 ON scoop.postcomment.userid = t5.userid \
   WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND t3.saveduserid = :id\
-  ORDER BY t3.savedmodifieddate DESC', 
+  ORDER BY t3.savedcreateddate DESC', 
   {replacements: {id:userid}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -557,7 +561,7 @@ router.get('/display-saved-post/:userid',authorization,(request, response)=>{
     INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid\
     INNER JOIN scoop.savedposts ON scoop.savedposts.activityid = scoop.postcomment.activityid\
     WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.savedposts.userid = :id\
-    ORDER BY scoop.savedposts.modifieddate DESC',
+    ORDER BY scoop.savedposts.createddate DESC',
     {replacements: {id: userid}, type: database.QueryTypes.SELECT})
     .then(results=>{
         console.log(results)
