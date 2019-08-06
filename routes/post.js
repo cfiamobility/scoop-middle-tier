@@ -208,7 +208,7 @@ router.get('/feed-text/:feed/:userid',authorization,(request, response)=>{
   const feed = request.params.feed;
   const userid = request.params.userid;
   database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate,\
-    activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname,\
+    modifieddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname,\
     savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
@@ -279,7 +279,7 @@ router.get('/detailed-post/text/:activityid/:userid', authorization,(request, re
   const queryactivityid = request.params.activityid;
   const userid = request.params.userid;
   database.query('SELECT * FROM ( \
-          SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, activitytype, scoop.postcomment.userid,\
+          SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, modifieddate, activitytype, scoop.postcomment.userid,\
             scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
           LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
           LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
@@ -354,7 +354,7 @@ router.get('/detailed-post/image/:activityid', authorization, (request, response
 router.get('/display-comments/text/:activityid/:userid', authorization, (request, response) => {
   var activityReference = request.params.activityid
   var userid = request.params.userid;
-  database.query('SELECT coalesce(A.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, A.posttext, A.activestatus, A.createddate, A.activitytype, A.userid, A.activityreference, likecount, liketype, firstname, lastname, postfirstname, postlastname FROM scoop.postcomment A \
+  database.query('SELECT coalesce(A.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, A.posttext, A.activestatus, A.createddate, A.modifieddate, A.activitytype, A.userid, A.activityreference, likecount, liketype, firstname, lastname, postfirstname, postlastname FROM scoop.postcomment A \
   INNER JOIN (SELECT scoop.postcomment.activityid, scoop.users.firstname AS postfirstname, scoop.users.lastname AS postlastname FROM scoop.postcomment INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid) B ON A.activityreference = B.activityid \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON A.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :userid) t2 ON A.activityid = t2.likesactivityid \
@@ -399,7 +399,7 @@ router.get('/search/text/:userid/:query',authorization,(request, response)=>{
   const userid = request.params.userid;
   const query = request.params.query;
   database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, \
-	posttitle, posttext, activestatus, createddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, \
+	posttitle, posttext, activestatus, createddate, modifieddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, \
 	postimagepath, likecount, liketype, commentcount, firstname, lastname \
 	FROM scoop.postcomment \
 	LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
@@ -531,7 +531,7 @@ router.post("/save-post", authorization, (request, response) => {
 router.get('/display-saved-post/:userid',authorization,(request, response)=>{
   const userid = request.params.userid; 
   console.log(userid)
-  database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid, t3.savedactivityid) AS activityid, posttitle, posttext, activestatus, createddate, activitytype,\
+  database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid, t3.savedactivityid) AS activityid, posttitle, posttext, activestatus, createddate, modifieddate, activitytype,\
     scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname,\
     savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \

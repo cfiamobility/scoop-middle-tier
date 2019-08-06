@@ -69,7 +69,7 @@ router.get("/initialfill/:userid", authorization, (request, response) => {
 router.get("/posttextfill/:userclicked/:currentuser", authorization, (request, response) => {
     var userClicked = request.params.userclicked
     var currentuser = request.params.currentuser
-    database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference,\
+    database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, modifieddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference,\
         postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivityid, saveduserid, savedstatus FROM scoop.postcomment\
     LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
     LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :currentuser) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
@@ -114,7 +114,7 @@ router.get('/postimagefill/:userid', authorization, (request, response)=>{
 router.get('/comment-message/:userclicked/:currentuser', authorization, (request, response) => {
     var userClicked = request.params.userclicked
     var currentUser = request.params.currentuser
-    database.query('SELECT coalesce(A.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, A.posttext, A.activestatus, A.createddate, A.activitytype, A.userid, A.activityreference, likecount, liketype, firstname, lastname, postfirstname, postlastname FROM scoop.postcomment A \
+    database.query('SELECT coalesce(A.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, A.posttext, A.activestatus, A.createddate, A.modifieddate, A.activitytype, A.userid, A.activityreference, likecount, liketype, firstname, lastname, postfirstname, postlastname FROM scoop.postcomment A \
     INNER JOIN (SELECT scoop.postcomment.activityid, scoop.users.firstname AS postfirstname, scoop.users.lastname AS postlastname FROM scoop.postcomment INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid) B ON A.activityreference = B.activityid \
     LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON A.activityid = t1.duplicateactivityid \
     LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :currentuser) t2 ON A.activityid = t2.likesactivityid \
@@ -261,7 +261,7 @@ function jsonConcat(o1, o2) {
 router.get("/getlikes/text/:userclicked/:currentuser", authorization, (request, response) => {
     var userClicked = request.params.userclicked
     var currentuser = request.params.currentuser
-    database.query('SELECT coalesce(B.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, B.activestatus, B.createddate, activitytype,\
+    database.query('SELECT coalesce(B.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, B.activestatus, B.createddate, B.modifieddate, activitytype,\
         B.userid, B.activityreference, postimagepath, likecount, A.liketype, commentcount, firstname, lastname, savedactivityid, saveduserid, savedstatus FROM scoop.likes A, scoop.postcomment B \
     LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON B.activityid = t1.duplicateactivityid \
     LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :currentuser) t2 ON B.activityid = t2.likesactivityid \
