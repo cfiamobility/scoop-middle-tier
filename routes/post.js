@@ -528,7 +528,6 @@ router.post("/unsave", authorization, (request, response) => {
     });
   });
 
-
   /**
    * Removes a post or comment
    * - Also removes all notifications and likes for the post/comment
@@ -574,5 +573,33 @@ router.post("/unsave", authorization, (request, response) => {
 
             })
   })
+  
+  /**
+   * Gets the current user's profile image to display on create post fragment. 
+   * This function will return the profile image of the current user or the default.png
+   * if the current user has not a profile image yet.
+   * This will return String type which will be converted to Bitmap on the application side
+   * 
+   * Param: userid - Current user's userid
+   */
+  router.get('/create-post-profile-image/:userid', authorization, (request, response)=>{
+    const userid = request.params.userid; 
+    // when a profile image gets set by the user, the path it goes to is formatted as such
+    var path = './pictures/profilepictures/' + userid + '.jpeg'
 
+    fs.stat(path, function(err, stat){
+      console.log('inside fs.stat')
+      // if the file path does not exist, this means the user has not set an image yet and has
+      // the default image set. 
+      if (err != null && err.code === 'ENOENT'){
+        //file doesn't exists
+        path = './pictures/profilepictures/default.png'
+        console.log('file does not exist, changing path to ' + path)
+      } 
+      console.log(path)
+      var profileImageFile = fs.readFileSync(path) //reads the image path and stores the file into a variable
+      var profilebase64data = profileImageFile.toString('base64') //converts the image file to a string  
+      response.send(profilebase64data)
+    })
+  })
 module.exports = router;
