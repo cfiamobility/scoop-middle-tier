@@ -22,7 +22,7 @@ router.post("/", authorization, (req, res) => {
       console.log(result.activityid)
       notifModel.create({
         userid: userid, 
-        activityid: result.activityid,
+        activityid: result.activityreference,
         activestatus: 1,
       })
       res.send("Success");
