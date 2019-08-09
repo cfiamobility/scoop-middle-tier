@@ -208,14 +208,15 @@ router.get('/feed-text/:feed/:userid',authorization,(request, response)=>{
   const feed = request.params.feed;
   const userid = request.params.userid;
   database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate,\
-    modifieddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname,\
+    modifieddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivestatus,\
     savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
-  LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
+  LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment WHERE scoop.postcomment.activestatus = 1 GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
   INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t4 ON scoop.postcomment.userid = t4.userid \
-  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, CASE\
-    WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t5 ON scoop.postcomment.activityid = t5.savedactivityid\
+  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.activestatus AS savedactivestatus, CASE\
+    WHEN scoop.savedposts.userid IS NOT NULL AND scoop.savedposts.activestatus = 1\
+    THEN TRUE ELSE FALSE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t5 ON scoop.postcomment.activityid = t5.savedactivityid\
   WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND feed = :feed \
   ORDER BY scoop.postcomment.modifieddate DESC', 
   {replacements: {id:userid, feed: feed}, type: database.QueryTypes.SELECT})
@@ -279,14 +280,15 @@ router.get('/detailed-post/text/:activityid/:userid', authorization,(request, re
   const queryactivityid = request.params.activityid;
   const userid = request.params.userid;
   database.query('SELECT * FROM ( \
-          SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, modifieddate, activitytype, scoop.postcomment.userid,\
-            scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
+          SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, activitytype, modifieddate, scoop.postcomment.userid,\
+            scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivestatus, savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
           LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
           LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
-          LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
+          LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment WHERE scoop.postcomment.activestatus = 1 GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
           INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t4 ON scoop.postcomment.userid = t4.userid \
-          LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, CASE\
-            WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t5 ON scoop.postcomment.activityid = t5.savedactivityid\
+          LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.activestatus as savedactivestatus, CASE\
+            WHEN scoop.savedposts.userid IS NOT NULL AND scoop.savedposts.activestatus = 1\
+            THEN TRUE ELSE FALSE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t5 ON scoop.postcomment.activityid = t5.savedactivityid\
           WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 \
       ) AS posts WHERE activityid = :activityid \
       LIMIT 1;',
@@ -404,7 +406,7 @@ router.get('/search/text/:userid/:query',authorization,(request, response)=>{
 	FROM scoop.postcomment \
 	LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
 	LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
-	LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
+	LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment WHERE scoop.postcomment.activestatus = 1 GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
 	INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t4 ON scoop.postcomment.userid = t4.userid \
 	WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.postcomment.searchtokens @@ to_tsquery(:query) \
 	ORDER BY scoop.postcomment.modifieddate DESC', 
@@ -507,41 +509,66 @@ router.put('/update-like', authorization, (request, response)=>{
 /**
  * Description: Saves a post into the database given the respective activityid of the post and the userid of the user saving the post
  */
-router.post("/save-post", authorization, (request, response) => {
+router.post("/save", authorization, (request, response) => {
   const {activityid, userid} = request.body;
-  //send the object to the savedposts table in the scoopdb database.
-  savedPostModel
-    .create({
-      activityid: activityid,
-      userid: userid,
-    })
-    .then(() => {
-      console.log("Valid save")
-      response.send("Post successfully saved!");
-    }).catch(function(err) {
-      console.log(err.body);
-      response.send("Failed to save post. Please try again later.")
+
+  var modifieddate = new Date()
+  console.log(modifieddate)
+  
+  database.query("SELECT activityid, userid FROM scoop.savedposts\
+  WHERE activityid = :activityid AND userid = :userid",
+  { replacements: {activityid: activityid, userid: userid}, type: database.QueryTypes.SELECT })
+    .then(results =>{
+      if(results.length == 0){
+        //send the object to the savedposts table in the scoopdb database.
+        savedPostModel
+        .create({
+          activityid: activityid,
+          userid: userid,
+        })
+        .then(() => {
+          console.log("Valid save")
+          response.send("Post successfully saved!");
+        }).catch(function(err) {
+          console.log(err.body);
+          response.send("Failed to save post. Please try again later.")
+        });
+      } else {
+        database.query("UPDATE scoop.savedposts SET activestatus = 1, modifieddate = :modifieddate\
+        WHERE activityid = :activityid AND userid = :userid",
+        { replacements: {activityid: activityid, userid: userid, modifieddate: modifieddate}, type: database.QueryTypes.SELECT })
+        .then(()=>{
+          console.log("Valid save")
+          response.send("Post successfully saved!")
+        }).catch(function(err) {
+          console.log(err.body);
+          response.send("Failed to save post. Please try again later.")
+        });
+      }
     });
   });
 
   
+ 
+
 /**
  * Description: Gets a users saved posts activityid's from the savedposts table based on the given userid and returns the necessary feed post data 
  */
 router.get('/display-saved-post/:userid',authorization,(request, response)=>{
   const userid = request.params.userid; 
   console.log(userid)
-  database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid, t3.savedactivityid) AS activityid, posttitle, posttext, activestatus, createddate, modifieddate, activitytype,\
+  database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid, t3.savedactivityid) AS activityid, posttitle, posttext, activestatus, modifieddate, savedmodifieddate, activitytype,\
     scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname,\
-    savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
+    savedactivestatus, savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
-  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.createddate AS savedcreateddate, CASE\
-    WHEN scoop.savedposts.userid = null THEN FALSE ELSE TRUE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t3 ON scoop.postcomment.activityid = t3.savedactivityid\
-  LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment GROUP BY scoop.postcomment.activityreference) t4 ON scoop.postcomment.activityid = t4.activityreference \
+  LEFT JOIN (SELECT scoop.savedposts.userid as saveduserid, scoop.savedposts.activityid AS savedactivityid, scoop.savedposts.modifieddate AS savedmodifieddate, scoop.savedposts.activestatus as savedactivestatus, CASE\
+    WHEN scoop.savedposts.userid IS NOT NULL AND scoop.savedposts.activestatus = 1\
+    THEN TRUE ELSE FALSE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t3 ON scoop.postcomment.activityid = t3.savedactivityid\
+  LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment WHERE scoop.postcomment.activestatus = 1 GROUP BY scoop.postcomment.activityreference) t4 ON scoop.postcomment.activityid = t4.activityreference \
   INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t5 ON scoop.postcomment.userid = t5.userid \
-  WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND t3.saveduserid = :id\
-  ORDER BY t3.savedcreateddate DESC', 
+  WHERE scoop.postcomment.activitytype = 1 ANd t3.savedactivestatus = 1 AND t3.saveduserid = :id\
+  ORDER BY t3.savedmodifieddate DESC', 
   {replacements: {id:userid}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -560,8 +587,8 @@ router.get('/display-saved-post/:userid',authorization,(request, response)=>{
     database.query('SELECT scoop.postcomment.postimagepath AS postimagepath, scoop.users.profileimage AS profileimage FROM scoop.postcomment \
     INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid\
     INNER JOIN scoop.savedposts ON scoop.savedposts.activityid = scoop.postcomment.activityid\
-    WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.savedposts.userid = :id\
-    ORDER BY scoop.savedposts.createddate DESC',
+    WHERE scoop.postcomment.activitytype = 1 AND scoop.savedposts.activestatus = 1 AND scoop.savedposts.userid = :id\
+    ORDER BY scoop.savedposts.modifieddate DESC',
     {replacements: {id: userid}, type: database.QueryTypes.SELECT})
     .then(results=>{
         console.log(results)
@@ -594,6 +621,28 @@ router.get('/display-saved-post/:userid',authorization,(request, response)=>{
     })
   })
 
+  /**
+ * Description: Saves a post into the database given the respective activityid of the post and the userid of the user saving the post
+ */
+router.post("/unsave", authorization, (request, response) => {
+  const {activityid, userid} = request.body;
+
+  var modifieddate = new Date()
+  console.log(modifieddate)
+
+  database.query("UPDATE scoop.savedposts SET activestatus = 0, modifieddate = :modifieddate\
+  WHERE activityid = :activityid AND userid = :userid",
+  { replacements: {activityid: activityid, userid: userid, modifieddate: modifieddate}, type: database.QueryTypes.SELECT })
+  .then(results=>{
+      console.log(results);
+      console.log("Valid unsave")
+      response.send("Post unsaved!");
+    })
+    .catch(function(err) {
+      console.log(err.body);
+      response.send("Failed to unsave post. Please try again later.")
+    });
+  });
 
   /**
    * Removes a post or comment
@@ -640,5 +689,33 @@ router.get('/display-saved-post/:userid',authorization,(request, response)=>{
 
             })
   })
+  
+  /**
+   * Gets the current user's profile image to display on create post fragment. 
+   * This function will return the profile image of the current user or the default.png
+   * if the current user has not a profile image yet.
+   * This will return String type which will be converted to Bitmap on the application side
+   * 
+   * Param: userid - Current user's userid
+   */
+  router.get('/create-post-profile-image/:userid', authorization, (request, response)=>{
+    const userid = request.params.userid; 
+    // when a profile image gets set by the user, the path it goes to is formatted as such
+    var path = './pictures/profilepictures/' + userid + '.jpeg'
 
+    fs.stat(path, function(err, stat){
+      console.log('inside fs.stat')
+      // if the file path does not exist, this means the user has not set an image yet and has
+      // the default image set. 
+      if (err != null && err.code === 'ENOENT'){
+        //file doesn't exists
+        path = './pictures/profilepictures/default.png'
+        console.log('file does not exist, changing path to ' + path)
+      } 
+      console.log(path)
+      var profileImageFile = fs.readFileSync(path) //reads the image path and stores the file into a variable
+      var profilebase64data = profileImageFile.toString('base64') //converts the image file to a string  
+      response.send(profilebase64data)
+    })
+  })
 module.exports = router;
