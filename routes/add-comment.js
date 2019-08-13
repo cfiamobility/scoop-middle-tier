@@ -7,7 +7,7 @@ const authorization = require("../config/token-verification");
 const router = express.Router();
 
 router.post("/", authorization, (req, res) => {
-  const { userid, activitytype, posttext, activityreference } = req.body;
+  const { userid, activitytype, posttext, activityreference, posterid} = req.body;
   console.log(userid);
   console.log(activityreference);
   
@@ -21,7 +21,7 @@ router.post("/", authorization, (req, res) => {
     .then((result) => {
       console.log(result.activityid)
       notifModel.create({
-        userid: userid, 
+        userid: posterid, 
         activityid: result.activityreference,
         activestatus: 1,
       })
