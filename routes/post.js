@@ -10,6 +10,8 @@ const savedPostModel = database.import("../models/savedposts");
 const LikeModel = database.import('../models/likes');
 const NotificationsModel = database.import('../models/notifications');
 
+// must be the same as the DATABASE_RESPONSE_SUCCESS constant in the Android scoop repository
+const DATABASE_RESPONSE_SUCCESS = "Success"
 
 router.post("/add-post", authorization, (req, res) => {
   const { userid, activitytype, posttitle, posttext, postimage } = req.body;
@@ -92,14 +94,14 @@ router.post("/edit-post/text/", authorization, (req, res) => {
     updatePostTitleQuery = "posttitle = :posttitle, ";
   }
 
-  var modifieddate = new Date()
+  const modifiedDate = new Date()
   // update the post/comment values
   database.query('\
   UPDATE scoop.postcomment \
   SET '+updatePostTitleQuery+' posttext = :posttext, modifieddate = :modifieddate \
   WHERE activityid = :activityid \
   ',
-  {replacements:{activityid: activityid, posttitle: posttitle, posttext: posttext, modifieddate: modifieddate}})
+  {replacements:{activityid: activityid, posttitle: posttitle, posttext: posttext, modifieddate: modifiedDate}})
   .then((results) => {
     if (activitytype == 1) {
       database.query(' \
@@ -118,7 +120,7 @@ router.post("/edit-post/text/", authorization, (req, res) => {
       {replacements:{activityid: activityid}, type: database.QueryTypes.SELECT})
     }
 
-    res.send("Success");
+    res.send(DATABASE_RESPONSE_SUCCESS);
   })
 
 });
@@ -130,7 +132,7 @@ router.post("/edit-post/text/", authorization, (req, res) => {
 router.post("/edit-post/image/", authorization, (req, res) => {
   const { activityid, userid, postimage } = req.body;
 
-  var imagepath = "";
+  var imagePath = "";
   if (postimage != "") {
     //check if directory exists already
     mkdirp("./pictures/postpicture/" + userid, function(err) {
@@ -142,11 +144,11 @@ router.post("/edit-post/image/", authorization, (req, res) => {
     var date = new Date();
     var currTime = date.getTime();
     console.log(currTime);
-    imagepath = "./pictures/postpicture/" + userid + "/" + currTime + ".jpg";
+    imagePath = "./pictures/postpicture/" + userid + "/" + currTime + ".jpg";
 
     // write the image into the filepath
     let buff = new Buffer(postimage, "base64");
-    fs.writeFileSync(imagepath, buff, function(err) {
+    fs.writeFileSync(imagePath, buff, function(err) {
       if (err) {
       }
     });
@@ -159,9 +161,9 @@ router.post("/edit-post/image/", authorization, (req, res) => {
   SET postimagepath = :imagepath \
   WHERE activityid = :activityid \
   ',
-  {replacements:{activityid: activityid, imagepath: imagepath}})
+  {replacements:{activityid: activityid, imagepath: imagePath}})
   .then((results) => {
-    res.send("Success");
+    res.send(DATABASE_RESPONSE_SUCCESS);
   })
 
 });
@@ -191,7 +193,7 @@ router.post("/get-image/", authorization, (req, res) => {
           results[i].postimagepath = postbase64data; //saves it into the results postimagepath
       }
     }
-    console.log(results.length)
+    console.log("Length of post image for starting EditPostActivity: " + results.length)
     res.send(results[0].postimagepath);
   }).catch(err=>{
     console.log(err);
