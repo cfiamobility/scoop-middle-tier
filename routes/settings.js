@@ -21,7 +21,6 @@ router.post("/updateSettings", (request, response) => {
         //console.log(results);
         for(var key in request.body) {
             if(request.body.hasOwnProperty(key) && isValidSetting(key, allowedSettings)){ // must check if setting is valid to protect against SQL Injection attack due to using raw value in the next database query 
-            //do something with e.g. req.body[key]
                 if (key != "userid"){
                     database.query("UPDATE scoop.usersettings SET " + key + " = :value WHERE userid = :userid",
                     { replacements:{ userid: userid, value: request.body[key]}, type: database.QueryTypes.UPDATE  })
