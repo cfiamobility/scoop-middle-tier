@@ -41,12 +41,12 @@ function checkHashPassword(userPassword, salt) {
 
 router.post("/register", (request, response) => {
   const { firstname, lastname, email, password } = request.body;
-  var defaultImagePath = "./pictures/profilepictures/default.png";
+  var defaultImagePath = "./pictures/profilepictures/default.jpg";
 
   // Encrypting the password
   passwordData = saltHashPassword(password);
   var str = email;
-  var pattern = "^[a-zA-Z]+\.+[a-zA-Z]+([0-9]?)+@canada\.ca$";
+  var pattern = /^([a-zA-Z]*)+\.+([a-zA-Z]*)+([0-9]?)+@canada\.ca$/g
 
   // checking if email exists
   database.query("SELECT users.email FROM scoop.users WHERE email = :email",
