@@ -18,7 +18,6 @@ router.post("/updateSettings", (request, response) => {
     {type: database.QueryTypes.SELECT})
     .then(results=>{
         var allowedSettings = results;
-        //console.log(results);
         for(var key in request.body) {
             if(request.body.hasOwnProperty(key) && isValidSetting(key, allowedSettings)){ // must check if setting is valid to protect against SQL Injection attack due to using raw value in the next database query 
                 if (key != "userid"){
@@ -43,7 +42,6 @@ router.post("/getUserSettings", (request, response) => {
     database.query("SELECT * FROM scoop.usersettings WHERE userid = :userid", 
     {replacements: {userid: userid}, type: database.QueryTypes.SELECT})
     .then(results=>{
-      //console.log(results)
       response.send(results);
     })
 
@@ -53,7 +51,6 @@ router.post("/getUserSettings", (request, response) => {
 function isValidSetting(settingToValidate, allowedSettings) {
     for (var setting in allowedSettings){
         for (let [key, value] of Object.entries(allowedSettings[setting])) {
-            //console.log(value);
             if (settingToValidate == value){
                 return true;
             }
