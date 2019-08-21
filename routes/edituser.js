@@ -12,7 +12,7 @@ const authorization = require("../config/token-verification");
 const router = express.Router();
 
 // Route for getting the intitial information when the user edits the profile
-router.get("/getinitial/:userid", authorization, (request, response) => {
+router.get("/get-initial/:userid", authorization, (request, response) => {
   // Gets the user id from app
   const userid = request.params.userid;
 
@@ -153,8 +153,6 @@ router.put("/updatedatabase", authorization, (request, response) => {
     positionid = results[0];
     divisionid = results[1];
 
-    console.log(" BOY " + positionid)
-
     // Putting all the data that is to be updated into one variable
     const updatedUserData = {
       firstname: firstname,
@@ -182,7 +180,7 @@ router.put("/updatedatabase", authorization, (request, response) => {
   response.send("Success")
 });
 
-// Function to help concatenate the json array on initial fill
+// Concatenate the json array on initial fill
 function jsonConcat(o1, o2) {
   for (var key in o2) {
     o1[key] = o2[key];
@@ -267,6 +265,7 @@ const facebookReturned = (userid, facebook) => {
     });
 };
 
+// Function to update the instagram status on the usersocial table
 const instagramReturned = (userid, instagram) => {
   return userSocialModel
     .findOne({
@@ -334,7 +333,7 @@ const twitterReturned = (userid, twitter) => {
     });
 };
 
-// Function to update the linked in status on the usersocial table
+// Function to update the linkedin status on the usersocial table
 const linkedinReturned = (userid, linkedin) => {
   // Finding the user social media (linkedin)
   return userSocialModel
