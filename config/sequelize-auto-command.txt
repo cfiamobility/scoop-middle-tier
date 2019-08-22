@@ -1,0 +1,8 @@
+/** 
+  * Paste code below into node terminal during set-up when inside scoop-middle-tier project folder
+  * This command allows us to generate all the models connected to our local PostgreSQL database and then refer to them in our middle-tier code 
+  * Please ensure sequelize has been installed with npm
+  */
+
+sequelize-auto -h localhost -d scoopDB -u postgres -x 123456 -p 5432 --dialect postgres -o './models/ -s scoop -t buildings, divisions, genders, likes, notifications, positions, postcomment, reporttable, savedposts, searchhistory, socialmedia, users, usersocial, officialnotifs, usersettings
+
