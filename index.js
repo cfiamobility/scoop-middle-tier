@@ -40,4 +40,6 @@ app.use("/profile", require('./routes/profile'))
 
 app.use("/report", require("./routes/report"));
 
+app.use("/settings", require("./routes/settings"));
+
 

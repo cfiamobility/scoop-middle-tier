@@ -7,9 +7,9 @@ const router = express.Router();
 
 const reportModel = database.import("../models/reporttable");
 
-
 /**
- * Description:  
+ * Creates a row in the report table and sends back a success if it is a unique report from the user
+ * Otherwise, if a user is attempting to report the same post again, it sends a fail 
  */
 router.post("/report-post", authorization, (request, response) => {
     const {activityId, userId, reportReason, reportBody} = request.body;
@@ -33,7 +33,7 @@ router.post("/report-post", authorization, (request, response) => {
 
 
 /**
- * Description:  
+ * Gets user-generated report data from table and formats into an email to be sent out to review team
  */
 router.get('/send-email/:activityId/:posterId/:userId',authorization,(request, response)=>{
   const activityId = request.params.activityId; 
@@ -49,6 +49,11 @@ router.get('/send-email/:activityId/:posterId/:userId',authorization,(request, r
       console.log(results[0]);
       response.send(results[0]);
 
+    /**
+     * Unable to successfully authorize authentication, assuming it may be because of network firewalls 
+     * Once test environment set up (no longer blocked by network issues), please uncomment and test 
+     */
+
     // var transporter = nodemailer.createTransport(
     //     {
     //     host: "smtp-mail.outlook.com", // hostname
@@ -63,28 +68,9 @@ router.get('/send-email/:activityId/:posterId/:userId',authorization,(request, r
     //     },
     //     requireTLS:true,
     // });
-    
-    // let transporter = nodemailer.createTransport(
-    //     {
-    //     host: "smtp.gmail.com",
-    //     secureConnection: false,
-    //     port: 587,
-    //     tls: {
-    //         ciphers: 'SSLv3',
-    //         rejectUnauthorized: false
-    //     },
-    //     requireTLS: true,
-    //     requiresAuth: true,
-    //     // domains: ["gmail.com", "googlemail.com"],
-    //     auth: {
-    //     user: "jack.ong587@gmail.com",
-    //     pass: "Canada1!"
-    //     }
-    //     });
-
 
     // let mailOptions = {
-    //     from: 'jack.ong587@gmail.com',
+    //     from: 'josh.chan4@canada.ca,
     //     to: 'edison.mendoza@canada.ca',
     //     subject: 'Sending Email using Node.js',
     //     html: '<h1>Welcome</h1><p>That was easy!</p>'
