@@ -10,6 +10,8 @@ const savedPostModel = database.import("../models/savedposts");
 const LikeModel = database.import('../models/likes');
 const NotificationsModel = database.import('../models/notifications');
 
+// must be the same as the DATABASE_RESPONSE_SUCCESS constant in the Android scoop repository
+const DATABASE_RESPONSE_SUCCESS = "Success"
 
 router.post("/add-post", authorization, (req, res) => {
   const { userid, activitytype, posttitle, posttext, postimage } = req.body;
@@ -82,6 +84,122 @@ database.query('SELECT officialcertified FROM scoop.users WHERE userid = :id',
  
 });
 
+/**
+ * Edit post text
+ */
+router.post("/edit-post/text/", authorization, (req, res) => {
+  const { activityid, activitytype, posttitle, posttext } = req.body;
+  var updatePostTitleQuery = "";
+  if (posttitle != null) {
+    updatePostTitleQuery = "posttitle = :posttitle, ";
+  }
+
+  const modifiedDate = new Date()
+  // update the post/comment values
+  database.query('\
+  UPDATE scoop.postcomment \
+  SET '+updatePostTitleQuery+' posttext = :posttext, modifieddate = :modifieddate \
+  WHERE activityid = :activityid \
+  ',
+  {replacements:{activityid: activityid, posttitle: posttitle, posttext: posttext, modifieddate: modifiedDate}})
+  .then((results) => {
+    if (activitytype == 1) {
+      database.query(' \
+      UPDATE scoop.postcomment \
+      SET searchtokens = to_tsvector \
+      (\'english\', \
+        COALESCE( \
+          ( \
+          SELECT concat(scoop.postcomment.posttitle, \' \', scoop.postcomment.posttext) \
+          FROM scoop.postcomment \
+          WHERE scoop.postcomment.activityid = :activityid \
+          ) \
+        ) \
+      ) \
+      WHERE scoop.postcomment.activityid = :activityid',
+      {replacements:{activityid: activityid}, type: database.QueryTypes.SELECT})
+    }
+
+    res.send(DATABASE_RESPONSE_SUCCESS);
+  })
+
+});
+
+
+/**
+ * Edit post image
+ */
+router.post("/edit-post/image/", authorization, (req, res) => {
+  const { activityid, userid, postimage } = req.body;
+
+  var imagePath = "";
+  if (postimage != "") {
+    //check if directory exists already
+    mkdirp("./pictures/postpicture/" + userid, function(err) {
+      //if error, this means directory already exists, ignore
+      console.log("post image directory already exists");
+    });
+
+    //use current time for unique name
+    var date = new Date();
+    var currTime = date.getTime();
+    console.log(currTime);
+    imagePath = "./pictures/postpicture/" + userid + "/" + currTime + ".jpg";
+
+    // write the image into the filepath
+    let buff = new Buffer(postimage, "base64");
+    fs.writeFileSync(imagePath, buff, function(err) {
+      if (err) {
+      }
+    });
+  }
+
+  // update the post/comment image path
+  // image path will be left blank ("") if no image was added to the post.
+  database.query('\
+  UPDATE scoop.postcomment \
+  SET postimagepath = :imagepath \
+  WHERE activityid = :activityid \
+  ',
+  {replacements:{activityid: activityid, imagepath: imagePath}})
+  .then((results) => {
+    res.send(DATABASE_RESPONSE_SUCCESS);
+  })
+
+});
+
+
+/**
+ * Get post image for starting edit post activity
+ */
+router.post("/get-image/", authorization, (req, res) => {
+  const { activityid } = req.body;
+
+  database.query('\
+    SELECT scoop.postcomment.postimagepath AS postimagepath \
+    FROM scoop.postcomment \
+    WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 \
+    AND activityid = :activityid \
+    LIMIT 1;',
+  {replacements: {activityid: activityid}, type: database.QueryTypes.SELECT})
+  .then(results=>{
+    console.log(results)
+    for(i=0; i<results.length; i++){
+      console.log(results[i].profileimagepath);
+      if(results[i].postimagepath != null && results[i].postimagepath != ""){ //if there is a post image
+          var postImagePath = results[i].postimagepath; //gets the image path of the postimagepath
+          var postImageFile = fs.readFileSync(postImagePath); //reads the image path and stores the file into a variable
+          var postbase64data = postImageFile.toString('base64'); //converts the image file to a string
+          results[i].postimagepath = postbase64data; //saves it into the results postimagepath
+      }
+    }
+    console.log("Length of post image for starting EditPostActivity: " + results.length)
+    res.send(results[0].postimagepath);
+  }).catch(err=>{
+    console.log(err);
+  })
+});
+
 
 /*===============================Merged from display-post.js================================*/
 
@@ -92,7 +210,7 @@ router.get('/feed-text/:feed/:userid',authorization,(request, response)=>{
   const feed = request.params.feed;
   const userid = request.params.userid;
   database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate,\
-    activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivestatus,\
+    modifieddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivestatus,\
     savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
@@ -102,7 +220,7 @@ router.get('/feed-text/:feed/:userid',authorization,(request, response)=>{
     WHEN scoop.savedposts.userid IS NOT NULL AND scoop.savedposts.activestatus = 1\
     THEN TRUE ELSE FALSE END AS savedstatus FROM scoop.savedposts WHERE scoop.savedposts.userid = :id) t5 ON scoop.postcomment.activityid = t5.savedactivityid\
   WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND feed = :feed \
-  ORDER BY scoop.postcomment.createddate DESC', 
+  ORDER BY scoop.postcomment.modifieddate DESC', 
   {replacements: {id:userid, feed: feed}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -121,7 +239,7 @@ router.get('/feed-images/:feed/:userid', authorization, (request, response)=>{
   database.query('SELECT scoop.postcomment.postimagepath AS postimagepath, scoop.users.profileimage AS profileimage FROM scoop.postcomment \
   INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid \
   WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND feed = :feed \
-  ORDER BY scoop.postcomment.createddate DESC',
+  ORDER BY scoop.postcomment.modifieddate DESC',
   {replacements: {id: userid, feed: feed}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -164,7 +282,7 @@ router.get('/detailed-post/text/:activityid/:userid', authorization,(request, re
   const queryactivityid = request.params.activityid;
   const userid = request.params.userid;
   database.query('SELECT * FROM ( \
-          SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, activitytype, scoop.postcomment.userid,\
+          SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, posttitle, posttext, activestatus, createddate, activitytype, modifieddate, scoop.postcomment.userid,\
             scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname, savedactivestatus, savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
           LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
           LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :id) t2 ON scoop.postcomment.activityid = t2.likesactivityid \
@@ -240,13 +358,13 @@ router.get('/detailed-post/image/:activityid', authorization, (request, response
 router.get('/display-comments/text/:activityid/:userid', authorization, (request, response) => {
   var activityReference = request.params.activityid
   var userid = request.params.userid;
-  database.query('SELECT coalesce(A.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, A.posttext, A.activestatus, A.createddate, A.activitytype, A.userid, A.activityreference, likecount, liketype, firstname, lastname, postfirstname, postlastname FROM scoop.postcomment A \
+  database.query('SELECT coalesce(A.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, A.posttext, A.activestatus, A.createddate, A.modifieddate, A.activitytype, A.userid, A.activityreference, likecount, liketype, firstname, lastname, postfirstname, postlastname FROM scoop.postcomment A \
   INNER JOIN (SELECT scoop.postcomment.activityid, scoop.users.firstname AS postfirstname, scoop.users.lastname AS postlastname FROM scoop.postcomment INNER JOIN scoop.users ON scoop.postcomment.userid = scoop.users.userid) B ON A.activityreference = B.activityid \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON A.activityid = t1.duplicateactivityid \
   LEFT JOIN (SELECT scoop.likes.liketype, scoop.likes.activityid AS likesactivityid FROM scoop.likes WHERE scoop.likes.userid = :userid) t2 ON A.activityid = t2.likesactivityid \
   INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS currentuserid FROM scoop.users) t4 ON A.userid = t4.currentuserid \
   WHERE A.activitytype = 2 AND A.activestatus = 1 AND A.activityreference = :activityReference \
-  ORDER BY A.createddate DESC;', 
+  ORDER BY A.modifieddate DESC;', 
   {replacements: {activityReference: activityReference, userid: userid}, type: database.QueryTypes.SELECT})
   .then(results => {
       console.log(results)
@@ -263,7 +381,7 @@ router.get('/display-comments/images/:activityid', authorization, (request, resp
   database.query('SELECT users.profileimage AS profileimage FROM scoop.postcomment AS postcomment \
 INNER JOIN scoop.users AS users ON users.userid = postcomment.userid \
   WHERE postcomment.activitytype = 2 AND postcomment.activestatus = 1 AND postcomment.activityreference = :activityReference\
-  ORDER BY postcomment.createddate DESC',
+  ORDER BY postcomment.modifieddate DESC',
   {replacements: {activityReference: activityReference}, type: database.QueryTypes.SELECT})
   .then(results=>{
       for(i=0; i<results.length; i++){                        
@@ -285,7 +403,7 @@ router.get('/search/text/:userid/:query',authorization,(request, response)=>{
   const userid = request.params.userid;
   const query = request.params.query;
   database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid) AS activityid, \
-	posttitle, posttext, activestatus, createddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, \
+	posttitle, posttext, activestatus, createddate, modifieddate, activitytype, scoop.postcomment.userid, scoop.postcomment.activityreference, \
 	postimagepath, likecount, liketype, commentcount, firstname, lastname \
 	FROM scoop.postcomment \
 	LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
@@ -293,7 +411,7 @@ router.get('/search/text/:userid/:query',authorization,(request, response)=>{
 	LEFT JOIN (SELECT COUNT(*) AS commentcount, scoop.postcomment.activityreference AS activityreference FROM scoop.postcomment WHERE scoop.postcomment.activestatus = 1 GROUP BY scoop.postcomment.activityreference) t3 ON scoop.postcomment.activityid = t3.activityreference \
 	INNER JOIN (SELECT scoop.users.firstname AS firstname, scoop.users.lastname AS lastname, scoop.users.userid AS userid FROM scoop.users) t4 ON scoop.postcomment.userid = t4.userid \
 	WHERE scoop.postcomment.activitytype = 1 AND scoop.postcomment.activestatus = 1 AND scoop.postcomment.searchtokens @@ to_tsquery(:query) \
-	ORDER BY scoop.postcomment.createddate DESC', 
+	ORDER BY scoop.postcomment.modifieddate DESC', 
   {replacements: {id:userid, query: query}, type: database.QueryTypes.SELECT})
   .then(results=>{
       console.log(results)
@@ -309,7 +427,7 @@ router.get('/search/images/:query', authorization, (request, response)=>{
   database.query('SELECT users.profileimage AS profileimage FROM scoop.postcomment AS postcomment \
   INNER JOIN scoop.users AS users ON users.userid = postcomment.userid \
   WHERE postcomment.activitytype = 1 AND postcomment.activestatus = 1 AND postcomment.searchtokens @@ to_tsquery(:query) \
-  ORDER BY postcomment.createddate DESC',
+  ORDER BY postcomment.modifieddate DESC',
   {replacements: {query: query}, type: database.QueryTypes.SELECT})
   .then(results=>{
       for(i=0; i<results.length; i++){                        
@@ -441,7 +559,7 @@ router.post("/save", authorization, (request, response) => {
 router.get('/display-saved-post/:userid',authorization,(request, response)=>{
   const userid = request.params.userid; 
   console.log(userid)
-  database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid, t3.savedactivityid) AS activityid, posttitle, posttext, activestatus, savedmodifieddate, activitytype,\
+  database.query('SELECT coalesce(scoop.postcomment.activityid, t1.duplicateactivityid, t2.likesactivityid, t3.savedactivityid) AS activityid, posttitle, posttext, activestatus, createddate, modifieddate, savedmodifieddate, activitytype,\
     scoop.postcomment.userid, scoop.postcomment.activityreference, postimagepath, likecount, liketype, commentcount, firstname, lastname,\
     savedactivestatus, savedactivityid, saveduserid, savedstatus FROM scoop.postcomment \
   LEFT JOIN (SELECT SUM(scoop.likes.liketype) AS likecount, scoop.likes.activityid AS duplicateactivityid FROM scoop.likes GROUP BY scoop.likes.activityid) t1 ON scoop.postcomment.activityid = t1.duplicateactivityid \
@@ -528,7 +646,6 @@ router.post("/unsave", authorization, (request, response) => {
     });
   });
 
-
   /**
    * Removes a post or comment
    * - Also removes all notifications and likes for the post/comment
@@ -574,5 +691,33 @@ router.post("/unsave", authorization, (request, response) => {
 
             })
   })
+  
+  /**
+   * Gets the current user's profile image to display on create post fragment. 
+   * This function will return the profile image of the current user or the default.png
+   * if the current user has not a profile image yet.
+   * This will return String type which will be converted to Bitmap on the application side
+   * 
+   * Param: userid - Current user's userid
+   */
+  router.get('/create-post-profile-image/:userid', authorization, (request, response)=>{
+    const userid = request.params.userid; 
+    // when a profile image gets set by the user, the path it goes to is formatted as such
+    var path = './pictures/profilepictures/' + userid + '.jpeg'
 
+    fs.stat(path, function(err, stat){
+      console.log('inside fs.stat')
+      // if the file path does not exist, this means the user has not set an image yet and has
+      // the default image set. 
+      if (err != null && err.code === 'ENOENT'){
+        //file doesn't exists
+        path = './pictures/profilepictures/default.png'
+        console.log('file does not exist, changing path to ' + path)
+      } 
+      console.log(path)
+      var profileImageFile = fs.readFileSync(path) //reads the image path and stores the file into a variable
+      var profilebase64data = profileImageFile.toString('base64') //converts the image file to a string  
+      response.send(profilebase64data)
+    })
+  })
 module.exports = router;

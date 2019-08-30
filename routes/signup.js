@@ -1,6 +1,7 @@
 const express = require("express");
 const database = require("../config/database");
 const userModel = database.import("../models/users");
+const userSettingsModel = database.import("../models/usersettings");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -42,6 +43,7 @@ function checkHashPassword(userPassword, salt) {
 router.post("/register", (request, response) => {
   const { firstname, lastname, email, password } = request.body;
   var defaultImagePath = "./pictures/profilepictures/default.jpg";
+  var useridVar;
 
   // Encrypting the password
   passwordData = saltHashPassword(password);
@@ -76,18 +78,23 @@ router.post("/register", (request, response) => {
           })
           .then(results => {
             const userid = results[0].userid; // grabbing the user id
+            database.query("INSERT INTO scoop.usersettings(userid)VALUES (:userid)", // added settings entry in database for the user 
+            { replacements:{ userid: userid}, type: database.QueryTypes.INSERT})
+            .then(
             // validing a token for the successfully signed up user
             // token payload contains the user id
-            jwt.sign({ userid: userid }, privatekey, (err, token) => {
-              if (err) {
-                console.log(err);
-              }
-              console.log(userid); // user id
-              console.log(token); // token that was created
-              response.send(token); // send the token as the server response to a successful register
-            });
+              jwt.sign({ userid: userid }, privatekey, (err, token) => {
+                if (err) {
+                  console.log(err);
+                }
+                console.log(userid); // user id
+                console.log(token); // token that was created
+                response.send(token); // send the token as the server response to a successful register
+              })  
+            );
           });
         });
+
       } else {
         response.send("ERROR_EMAIL_FORMAT");
       }       
